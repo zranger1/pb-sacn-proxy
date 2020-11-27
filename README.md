@@ -18,6 +18,13 @@ your Pixelblaze.
 Run sacnproxy.py on your proxy machine, then start the lightshowpi script.  If all is 
 correctly configured, you should have blinking lights!    
 
+## Requirements
+Requires Python 3, websocket-client, sacn and pyblaze.py 
+
+## Installation
+Add websocket-client and sacn to your python installation with pip or another library manager
+Copy the repository files into a handy directory.  
+
 #### TODO
 
  - provide a little more information on how to configure lightshowpi, even though that's
