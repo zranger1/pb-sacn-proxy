@@ -26,9 +26,10 @@
 
  Version  Date         Author Comment
  v0.0.1   11/27/2020   JEM(ZRanger1)    Created
+ v0.0.2   12/01/2020   JEM(ZRanger1)    Changed lib to pixelblaze-client
 """
 
-from pyblaze import *
+from pixelblaze import *
 import sacn
 import time
 import sys

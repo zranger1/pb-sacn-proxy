@@ -1,5 +1,5 @@
 """
- pyblaze.py
+ pixelblaze.py
 
  A library that presents a simple, synchronous interface for communicating with and
  controlling a Pixelblaze LED controller.  Requires Python 3 and the websocket-client
@@ -25,6 +25,7 @@
 
  Version  Date         Author Comment
  v0.0.1   11/20/2020   JEM(ZRanger1)    Created
+ v0.0.2   12/1/2020    JEM(ZRanger1)    Name change + color control methods
 """
 import websocket
 import socket
@@ -158,7 +159,7 @@ class Pixelblaze:
         """Returns JSON object containing all vars exported from the active pattern"""
         self.ws_flush()  # make sure there are no pending packets    
         self.send_string('{"getVars": true}')
-        return json.loads(self.ws.recv())
+        return json.loads(self.ws.recv()).get('vars')
     
     def setVars(self, json_vars):
         """
@@ -176,17 +177,27 @@ class Pixelblaze:
         val = {var_name : value }
         self.setVars(val)
         
+    def variableExists(self, var_name):
+        """
+        Returns True if the specified variable exists in the active pattern,
+        False otherwise.
+        """
+        val = self.getVars()
+        if (val is None):
+            return False
         
+        return True if var_name in val else False
+               
     def _id_from_name(self, patterns, name):
-        """Given the list of patterns and text name of a pattern, returns that pattern's ID"""
+        """Utility Method: Given the list of patterns and text name of a pattern, returns that pattern's ID"""
         for key, value in patterns.items(): 
             if name == value: 
                 return key 
         return None
-    
+       
     # takes either name or id, returns valid id    
     def _get_pattern_id(self, pid):
-        """Returns a pattern ID if passed either a valid ID or a text name"""
+        """Utility Method: Returns a pattern ID if passed either a valid ID or a text name"""
         patterns = self.getPatternList()
         
         if (patterns.get(pid) is None):
@@ -216,7 +227,7 @@ class Pixelblaze:
             
     def getActivePattern(self):
         """
-        Returns the ID and name of the pattern currently running on
+        Returns the ID the pattern currently running on
         the Pixelblaze if available.  Otherwise returns an empty dictionary
         object
         """
@@ -260,16 +271,51 @@ class Pixelblaze:
         
         return hw
     
-    def getControls(self, pid):
-        """Returns a JSON object containing the state of all the active pattern's UI controls"""
-        p = self._get_pattern_id(pid)
-        if (p is None):
+    def _get_current_controls(self):
+        """
+        Utility Method: Returns controls for currently running pattern if
+        available, None otherwise
+        """
+        ctl = self.getHardwareConfig()  
+        if ctl is None:
             return None
         
-        self.send_string('{"getControls": "%s"}'%p)
-        ctl = json.loads(self.ws.recv())
-        x = next(iter(ctl['controls']))
-        return ctl['controls'][x]
+# retrieve control settings for active pattern from hardware config        
+        ctl = ctl.get('activeProgram').get('controls') 
+        return ctl
+
+    
+    def getControls(self, pattern = None):      
+        """
+        Returns a JSON object containing the state of all the specified
+        pattern's UI controls. If the pattern argument is not specified,
+        returns the controls for the currently active pattern if available.
+        Returns empty object if the pattern has no UI controls, None if
+        the pattern id is not valid or is not available.
+        (Note that getActivePattern() can return None on a freshly started
+        Pixelblaze until the pattern has been explicitly set.)
+        """
+        # if pattern is not specified, attempt to get controls for active pattern
+        # from hardware config
+        if pattern is None:
+            return self._get_current_controls()
+            
+        # if pattern name or id was specified, attempt to validate against pattern list
+        # and get stored values for that program
+        else:
+            pattern = self._get_pattern_id(pattern)           
+            if (pattern is None):
+                return None
+        
+            self.send_string('{"getControls": "%s"}'%pattern)
+            ctl = json.loads(self.ws.recv())
+                
+        # extract controls and their values
+        if (len(ctl.get('controls')) > 0):
+            x = next(iter(ctl['controls']))
+            return ctl['controls'][x]
+        else:
+            return {}
     
     def setControls(self, json_ctl, saveFlash = False):
         """
@@ -286,13 +332,60 @@ class Pixelblaze:
     def setControl(self, ctl_name, value, saveFlash = False):
         """
         Sets the value of a single UI controls in the active pattern.
-        to values contained inct in argument json_ctl. To reduce wear on
+        to values contained in in argument json_ctl. To reduce wear on
         Pixelblaze's flash memory, the saveFlash parameter is ignored
         by default.  See documentation for _enable_flash_save() for
         more information.
         """       
-        val = {ctl_name : max(0, min(value, 1))}  # clamp value to proper 0-1 range
-        self.setControls(val,saveFlash)       
+        val = {ctl_name : max(0, min(value, 1))}  # clamp value to proper 0-1 range 
+        self.setControls(val,saveFlash)
+        
+    def setColorControl(self, ctl_name, color, saveFlash = False):
+        """
+        Sets the 3-element color of the specified HSV or RGB color picker.
+        The color argument should contain an RGB or HSV color with all values
+        in the range 0-1. To reduce wear on Pixelblaze's flash memory, the saveFlash parameter
+        is ignored by default.  See documentation for _enable_flash_save() for
+        more information.
+        """
+        
+        # based on testing w/Pixelblaze, no run-time length or range validation is performed
+        # on color. Pixelblaze ignores extra elements, sets unspecified elements to zero,
+        # takes only the fractional part of elements outside the range 0-1, and
+        # does something (1-(n % 1)) for negative elements.
+        val = {ctl_name : color}
+        self.setControls(val,saveFlash)
+        
+    def controlExists(self,ctl_name,pattern = None):
+        """
+        Returns True if the specified control exists, False otherwise.
+        The pattern argument takes the name or ID of the pattern to check.
+        If pattern argument is not specified, checks the currently running pattern.
+        Note that getActivePattern() can return None on a freshly started
+        Pixelblaze until the pattern has been explicitly set.  This function
+        also will return False if the active pattern is not available.
+        """            
+        result = self.getControls(pattern)
+        return True if ctl_name in result else False
+    
+    def getColorControlName(self, pattern = None):
+        """
+        Returns the name of the specified pattern's rgbPicker or hsvPicker control
+        if it exists, None otherwise.  If the pattern argument is not specified,
+        checks in the currently running pattern
+        """
+        controls = self.getControls(pattern)
+        if (controls is None):
+            return None
+        
+        # check for hsvPicker        
+        result = dict(filter(lambda ctl: "hsvPicker" in ctl[0], controls.items()))
+        
+        # check for rgbPicker if we didn't find an hsvPicker
+        if (len(result) == 0):
+            result = dict(filter(lambda ctl: "rgbPicker" in ctl[0], controls.items()))
+            
+        return list(result.keys())[0] if (len(result) > 0) else None        
         
     def setDataspeed(self, speed, saveFlash = False):
         """
