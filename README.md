@@ -29,3 +29,8 @@ Copy the repository files into a handy directory.
 
  - provide a little more information on how to configure lightshowpi, even though that's
 somewhat beyond the scope of this project.
+
+## Donation
+If this project saves you time and effort, please consider donating to help support further development.  Every donut or cup of coffee helps!  :-)
+
+[![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/donate/?hosted_button_id=YM9DKUT5V34G8)
