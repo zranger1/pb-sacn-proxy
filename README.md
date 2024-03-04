@@ -1,3 +1,6 @@
+# Retirement
+This repository is now retired.  It served mostly as a demonstration, and has been superseded by the much more functional Flamecaster Art-Net-to-Pixelblaze router, found at https://github.com/zranger1/Flamecaster .
+
 # pb-sacn-proxy
 Enables sending e1.31 (sACN) data to a Pixelblaze LED controller
   
